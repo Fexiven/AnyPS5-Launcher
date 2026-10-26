@@ -284,6 +284,15 @@ fn make_exec(p: &Path) {
 #[cfg(not(unix))]
 fn make_exec(_: &Path) {}
 
+fn is_nixos() -> bool {
+    std::env::var_os("ANYPS5_LAUNCHER_NIX").is_some()
+        || Path::new("/etc/NIXOS").exists()
+        || fs::read_to_string("/etc/os-release").map_or(false, |t| t.lines().any(|l| l.trim() == "ID=nixos"))
+}
+
+// Converted games ask for this loader (the relinker writes it as PT_INTERP). On NixOS it comes from nix-ld.
+const GAME_INTERP: &str = "/lib64/ld-linux-x86-64.so.2";
+
 fn open_with_system(p: &str) -> Result<(), String> {
     let cmd = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
     Command::new(cmd).arg(p).stdout(Stdio::null()).stderr(Stdio::null()).spawn().map(|_| ()).map_err(|e| e.to_string())
@@ -298,6 +307,7 @@ struct StateView {
     relinker: Option<String>,
     libs: Option<String>,
     cpu: String,
+    nixos: bool,
     version: String,
     running: Vec<String>,
 }
@@ -309,6 +319,7 @@ fn get_state(state: State<AppState>, app: AppHandle) -> StateView {
         relinker: detect_relinker(&s).map(|p| p.to_string_lossy().into_owned()),
         libs: detect_libs(&s).map(|p| p.to_string_lossy().into_owned()),
         cpu: cpu_vendor(),
+        nixos: is_nixos(),
         version: app.package_info().version.to_string(),
         running: state.running.lock().unwrap().keys().cloned().collect(),
         settings: s,
@@ -742,6 +753,13 @@ fn play(id: String, app: AppHandle, state: State<AppState>) -> Result<(), String
     if !exe.is_file() {
         return Err(format!("The game file is missing:\n{}\n\nUse “Convert again”.", exe.display()));
     }
+    if !Path::new(GAME_INTERP).exists() {
+        return Err(if is_nixos() {
+            format!("Games need {GAME_INTERP}, which NixOS only provides with nix-ld.\n\nAdd programs.anyps5-launcher.enable = true; (from this project's flake) or programs.nix-ld.enable = true; to your NixOS configuration and rebuild.")
+        } else {
+            format!("Games need {GAME_INTERP}, which is missing on this system. Install your distribution's 64-bit glibc.")
+        });
+    }
     make_exec(&exe);
     let o = &game.options;
     let mut cmd = Command::new(&exe);
@@ -751,6 +769,14 @@ fn play(id: String, app: AppHandle, state: State<AppState>) -> Result<(), String
     if !o.vsync.is_empty() { cmd.env("ANYPS5_PRESENT_MODE", &o.vsync); }
     if !o.gpu.is_empty() { cmd.env("ANYPS5_GPU", &o.gpu); }
     if !o.playgo.is_empty() { cmd.env("APS5_PLAYGO_UNLISTED_CHUNKS", &o.playgo); }
+    // Nix package: hand the game's libraries to nix-ld (ignored on other distributions)
+    if let Some(libs) = std::env::var_os("ANYPS5_GAME_LIBRARY_PATH") {
+        let existing = std::env::var_os("NIX_LD_LIBRARY_PATH").unwrap_or_default();
+        let paths: Vec<PathBuf> = std::env::split_paths(&libs).chain(std::env::split_paths(&existing)).collect();
+        if let Ok(joined) = std::env::join_paths(paths) {
+            cmd.env("NIX_LD_LIBRARY_PATH", joined);
+        }
+    }
     // the launcher's own WebKit settings must not leak into the game
     cmd.env_remove("WEBKIT_DISABLE_COMPOSITING_MODE").env_remove("WEBKIT_DISABLE_DMABUF_RENDERER");
     let mut child = cmd.spawn().map_err(|e| format!("Could not start the game: {e}"))?;
