@@ -92,6 +92,7 @@ const games = () => (S ? S.settings.games : []);
 const gameById = (id) => games().find((g) => g.id === id);
 const setupOk = () => S && S.relinker && S.libs;
 const cpuVendor = () => (S ? S.cpu.split("|")[0] : "unknown");
+const isNixos = () => !!(S && S.nixos);
 
 async function refresh() {
   S = await invoke("get_state");
@@ -300,17 +301,22 @@ function tipsFor(lines, g) {
   const t = lines.join("\n");
   const tips = [];
   if (/udmabuf: Permission denied/.test(t))
-    tips.push({ title: "Allow GPU memory sharing", body: "Run <code>sudo usermod -aG kvm $USER</code> in a terminal, then log out and back in." });
+    tips.push({ title: "Allow GPU memory sharing", body: isNixos()
+      ? "Add <code>\"kvm\"</code> to <code>users.users.&lt;you&gt;.extraGroups</code> in your NixOS configuration, run <code>sudo nixos-rebuild switch</code>, then log out and back in."
+      : "Run <code>sudo usermod -aG kvm $USER</code> in a terminal, then log out and back in." });
   if (/sceFontOpenFontSet[^\n]*file=\(none\)/.test(t))
     tips.push({ title: "This game needs fonts", body: "Put the free Noto Sans fonts (NotoSans-Regular.ttf, NotoSans-Bold.ttf, NotoSansCJK-Regular.ttc …) into the game's fonts folder.", btn: ["Open fonts folder", () => call("open_game_path", { id: g.id, what: "fonts" })] });
-  if (/\b(AVX2|F16C|BMI1|BMI2|LZCNT|MOVBE)\b/i.test(t) && /missing|lacks|not supported/i.test(t))
+  // every run logs "host CPU …: has …; lacks none" – only a real "lacks <features>" counts
+  if (/host CPU[^\n]*\blacks (?!none\b)/i.test(t))
     tips.push({ title: "Your processor is missing required instructions", body: "AnyPS5 runs games natively, so the CPU needs AVX2 and similar extensions (most CPUs from 2015 or newer)." });
   if (/param\.json/i.test(t) && /error|invalid|missing/i.test(t))
     tips.push({ title: "Game information file problem", body: "The game's <code>sce_sys/param.json</code> is missing or damaged. Convert again from a complete dump." });
   if (/PlayGo|chunk ID/i.test(t) && /error|stop/i.test(t))
     tips.push({ title: "Game data chunk error", body: "In Settings, set <b>Game data</b> to “Report missing chunks as installed” – or “absent” if that doesn't help." });
   if (/vulkan|Physical device/i.test(t) && /no usable|not found|VK_ERROR|failed to (create|find)/i.test(t))
-    tips.push({ title: "Graphics driver problem", body: "AnyPS5 needs a GPU with Vulkan 1.1. Install your distribution's Vulkan driver (e.g. <code>mesa-vulkan-drivers</code>) or pick a card in Settings." });
+    tips.push({ title: "Graphics driver problem", body: isNixos()
+      ? "AnyPS5 needs a GPU with Vulkan 1.1. Set <code>hardware.graphics.enable = true;</code> in your NixOS configuration (plus your GPU's driver), rebuild, or pick a card in Settings."
+      : "AnyPS5 needs a GPU with Vulkan 1.1. Install your distribution's Vulkan driver (e.g. <code>mesa-vulkan-drivers</code>) or pick a card in Settings." });
   if (/Illegal instruction|SIGILL|AMD-specific/i.test(t) && cpuVendor() === "intel")
     tips.push({ title: "Intel processor", body: "Use <b>Convert again</b> and keep the processor set to Intel – it rewrites AMD-only instructions." });
   if (/was not relinked/.test(t))
