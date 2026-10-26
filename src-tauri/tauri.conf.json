@@ -1,0 +1,35 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AnyPS5 Launcher",
+  "version": "0.2.0",
+  "identifier": "io.github.anyps5.launcher",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "AnyPS5 Launcher",
+        "width": 1120,
+        "height": 720,
+        "minWidth": 880,
+        "minHeight": 580,
+        "backgroundColor": "#0b0d12"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "appimage"],
+    "category": "Game",
+    "shortDescription": "Convert and play your PS5 games with AnyPS5",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png"],
+    "linux": {
+      "deb": { "depends": [] }
+    }
+  }
+}

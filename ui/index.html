@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AnyPS5 Launcher</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg></div>
+      <div><div class="brand-name">AnyPS5</div><div class="brand-sub">Launcher</div></div>
+    </div>
+    <nav>
+      <button class="nav-item active" data-nav="library"><span class="i" data-icon="grid"></span>Library</button>
+      <button class="nav-item" data-nav="add"><span class="i" data-icon="plus"></span>Add game</button>
+      <button class="nav-item" data-nav="setup"><span class="i" data-icon="gear"></span>AnyPS5 files</button>
+    </nav>
+    <div id="now-playing" class="now-playing hidden"></div>
+    <div class="sidebar-foot">
+      <div id="setup-status" class="setup-status"></div>
+      <button class="link" data-url="https://github.com/boykopovar/AnyPS5">AnyPS5 on GitHub <span class="i sm" data-icon="ext"></span></button>
+      <div class="muted xs" id="version"></div>
+    </div>
+  </aside>
+
+  <main id="main"></main>
+
+  <div id="modal-root"></div>
+  <div id="toasts"></div>
+  <script src="app.js"></script>
+</body>
+</html>
